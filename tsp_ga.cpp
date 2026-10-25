@@ -8,13 +8,27 @@
 #include <chrono>
 using namespace std;
 
+// parametros
+const int    CENARIO   = 0;     // 0 = pontos aleatorios, 1 = circulo
+const int    N         = 20;    // quantidade de pontos (minimo 8)
+const int    POP       = 200;   // tamanho da populacao
+const int    MAXGEN    = 500;   // maximo de geracoes
+const double MUT       = 0.2;   // taxa de mutacao (0 a 1)
+const double CRUZ      = 0.9;   // taxa de cruzamento (0 a 1)
+const int    ELITE     = 2;     // quantos melhores passam direto
+const int    K_TORNEIO = 3;     // quantos competem no torneio
+const int    PARADA    = 100;   // para se ficar X geracoes sem melhora
+const int    PRINT     = 1;     // imprime a cada X geracoes
+const unsigned int SEED = 42;   // semente do gerador aleatorio
+const double LADO      = 100;   // lado da area dos pontos aleatorios
+const double RAIO      = 40;    // raio do circulo
+
 struct Ponto { double x, y; };
 struct Individuo { vector<int> rota; double custo; };
 
-int N;
 vector<Ponto> pts;
 vector<vector<double>> D;
-mt19937 rng(42);
+mt19937 rng(SEED);
 
 int rnd(int n) { return rng() % n; }
 double rnd01() { return uniform_real_distribution<double>(0, 1)(rng); }
@@ -28,7 +42,7 @@ double aptidao(const Individuo& ind) { return 1.0 / ind.custo; }
 
 const Individuo& torneio(const vector<Individuo>& pop) {
     const Individuo* melhor = &pop[rnd(pop.size())];
-    for (int i = 1; i < 3; i++) {
+    for (int i = 1; i < K_TORNEIO; i++) {
         const Individuo& c = pop[rnd(pop.size())];
         if (aptidao(c) > aptidao(*melhor)) melhor = &c;
     }
@@ -55,31 +69,36 @@ void mutacao(vector<int>& r) {
     reverse(r.begin() + a, r.begin() + b + 1);
 }
 
-int main(int argc, char** argv) {
-    int cenario = argc > 1 ? atoi(argv[1]) : 0;
-    N           = argc > 2 ? atoi(argv[2]) : 20;
-    int POP     = argc > 3 ? atoi(argv[3]) : 200;
-    int MAXGEN  = argc > 4 ? atoi(argv[4]) : 500;
-    double MUT  = argc > 5 ? atof(argv[5]) : 0.2;
-    int PARADA  = argc > 6 ? atoi(argv[6]) : 100;
-    int PRINT   = argc > 7 ? atoi(argv[7]) : 1;
-    const double CRUZ = 0.9;
-    const int ELITE = 2;
-    if (N < 8) N = 8;
+int main() {
+    printf("=========== PARAMETROS USADOS ===========\n");
+    printf("Cenario ................ %d (%s)\n", CENARIO, CENARIO == 0 ? "pontos aleatorios" : "circulo");
+    printf("Quantidade de pontos ... %d\n", N);
+    printf("Populacao .............. %d\n", POP);
+    printf("Maximo de geracoes ..... %d\n", MAXGEN);
+    printf("Taxa de mutacao ........ %.2f\n", MUT);
+    printf("Taxa de cruzamento ..... %.2f\n", CRUZ);
+    printf("Elite .................. %d\n", ELITE);
+    printf("Tamanho do torneio ..... %d\n", K_TORNEIO);
+    printf("Parada (sem melhora) ... %d geracoes\n", PARADA);
+    printf("Imprime a cada ......... %d geracoes\n", PRINT);
+    printf("Seed ................... %u\n", SEED);
+    if (CENARIO == 0) printf("Area dos pontos ........ %.0f x %.0f\n", LADO, LADO);
+    else              printf("Raio do circulo ........ %.0f\n", RAIO);
+    printf("=========================================\n\n");
 
     const double PI = acos(-1.0);
     for (int i = 0; i < N; i++) {
-        if (cenario == 0) pts.push_back({rnd01() * 100, rnd01() * 100});
-        else pts.push_back({50 + 40 * cos(2 * PI * i / N), 50 + 40 * sin(2 * PI * i / N)});
+        if (CENARIO == 0) pts.push_back({rnd01() * LADO, rnd01() * LADO});
+        else pts.push_back({RAIO + RAIO * cos(2 * PI * i / N), RAIO + RAIO * sin(2 * PI * i / N)});
     }
-    if (cenario == 1) shuffle(pts.begin(), pts.end(), rng);
+    if (CENARIO == 1) shuffle(pts.begin(), pts.end(), rng);
     D.assign(N, vector<double>(N));
     for (int i = 0; i < N; i++)
         for (int j = 0; j < N; j++)
             D[i][j] = hypot(pts[i].x - pts[j].x, pts[i].y - pts[j].y);
 
-    if (cenario == 1)
-        printf("Otimo teorico (circulo): %.4f\n", 2 * N * 40 * sin(PI / N));
+    if (CENARIO == 1)
+        printf("Otimo teorico (circulo): %.4f\n\n", 2 * N * RAIO * sin(PI / N));
 
     vector<Individuo> pop(POP);
     for (auto& ind : pop) {
@@ -129,11 +148,5 @@ int main(int argc, char** argv) {
     printf("Melhor rota:");
     if (N <= 50) for (int c : pop[0].rota) printf(" %d", c);
     printf("\n");
-
-    FILE* f = fopen("melhor_rota.csv", "w");
-    fprintf(f, "x,y\n");
-    for (int c : pop[0].rota) fprintf(f, "%f,%f\n", pts[c].x, pts[c].y);
-    fprintf(f, "%f,%f\n", pts[pop[0].rota[0]].x, pts[pop[0].rota[0]].y);
-    fclose(f);
     return 0;
 }
